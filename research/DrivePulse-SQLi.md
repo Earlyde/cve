@@ -273,3 +273,28 @@ https://github.com/Earlyde/cve
 Contact:
 
 Early@hnsldjy.icu
+
+## References
+
+### Original Disclosure
+
+- Vulnerability Report:
+  - https://github.com/Earlyde/cve/issues/1
+
+### Security Standards
+
+- CWE-89: Improper Neutralization of Special Elements used in an SQL Command ("SQL Injection")
+  - https://cwe.mitre.org/data/definitions/89.html
+
+- OWASP SQL Injection Prevention Cheat Sheet
+  - https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
+
+### Technical References
+
+- MySQL Error-Based Injection Technique: FLOOR(RAND()) Collision
+  - https://security.stackexchange.com/questions/89341/sql-injection-explain-this-query
+
+### Risk Assessment
+
+- CVSS v3.1 Calculator
+  - https://www.first.org/cvss/calculator/3.1
