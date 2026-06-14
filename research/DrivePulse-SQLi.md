@@ -4,7 +4,7 @@
 
 | Item | Description |
 |--------|--------|
-| Vulnerability ID | CVE-PENDING / SCVE-2026-001 |
+| Vulnerability ID | CVE-PENDING / SCVE-2026-003 |
 | Product | Class and Exam Timetabling System V1.0 |
 | Affected Component | `/edit_coursea.php` |
 | Vulnerability Type | SQL Injection |
