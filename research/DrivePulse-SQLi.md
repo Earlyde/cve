@@ -1,287 +1,276 @@
-# DrivePulse SQL Injection Vulnerability Research
+# SQL Injection Vulnerability Analysis
 
-## Overview
+## Vulnerability Information
 
-| Item | Value |
+| Item | Description |
 |--------|--------|
-| Project | DrivePulse |
+| Vulnerability ID | CVE-PENDING / SCVE-2026-001 |
+| Product | Class and Exam Timetabling System V1.0 |
+| Affected Component | `/edit_coursea.php` |
 | Vulnerability Type | SQL Injection |
 | CWE | CWE-89 |
-| Severity | High |
-| Discovery Method | Source Code Review |
-| Research Type | Defensive Security Research |
+| Severity | Critical |
+| CVSS v3.1 | 9.8 (Critical) |
+| Discovery Date | 2026-06-07 |
+| Report Date | 2026-06-14 |
+| Research Source | Issue #1 |
+| Authentication Required | No |
+| User Interaction Required | No |
 
 ---
 
-## Summary
+# Executive Summary
 
-During a source-code review of the DrivePulse Driving School Management System, I identified multiple SQL injection vulnerabilities within the data retrieval functionality.
+During a security assessment of **Class and Exam Timetabling System V1.0**, a critical SQL Injection vulnerability was identified within the course management functionality.
 
-The vulnerable component directly concatenates user-controlled input into SQL statements without using parameterized queries.
-
-Affected parameters include:
-
-- start_date
-- end_date
-- search[value]
-- order[0][column]
-- order[0][dir]
-- start
-- length
-
-Successful exploitation may allow an authenticated attacker to manipulate query logic and potentially access, modify, or destroy database records.
-
----
-
-## Vulnerable Component
+The vulnerable endpoint:
 
 ```text
-admin/sortData/fetch.php
+/edit_coursea.php
 ```
+
+fails to properly neutralize user-supplied input before incorporating it into SQL queries.
+
+An unauthenticated attacker can exploit this vulnerability to manipulate backend database queries, potentially resulting in unauthorized data access, data modification, authentication bypass, or complete database compromise.
 
 ---
 
-## Discovery Process
+# Vulnerability Description
 
-The issue was discovered through manual code review while analyzing database query construction.
+The application accepts user-controlled input and directly concatenates it into SQL statements without proper validation or parameterization.
 
-The application dynamically builds SQL statements using string concatenation.
-
-Example:
-
-```php
-if (isset($_POST["search"]["value"])) {
-    $query .= '
-    (
-        id LIKE "%' . $_POST["search"]["value"] . '%"
-        OR name LIKE "%' . $_POST["search"]["value"] . '%"
-        OR vehicle LIKE "%' . $_POST["search"]["value"] . '%"
-        OR totalamount LIKE "%' . $_POST["search"]["value"] . '%"
-    )
-    ';
-}
-```
-
-User input is inserted directly into the query without validation or parameterization.
-
----
-
-## Root Cause Analysis
-
-### Root Cause #1
-
-Dynamic SQL Construction
-
-The application relies on:
-
-```php
-$query .= ...
-```
-
-instead of parameterized statements.
-
----
-
-### Root Cause #2
-
-Missing Input Validation
-
-No validation is applied to:
+Affected functionality resides in:
 
 ```text
-search[value]
-start_date
-end_date
-order[0][dir]
-start
-length
+/ edit_coursea.php
 ```
 
-before processing.
+The application relies on dynamic SQL construction, creating an attack surface for SQL injection attacks.
 
 ---
 
-### Root Cause #3
+# Discovery Process
 
-Absence of Prepared Statements
+The vulnerability was discovered during manual source-code review and application security testing.
 
-The application primarily uses:
+Analysis revealed that user-controlled parameters were incorporated into SQL queries through string concatenation rather than parameterized statements.
+
+Example pattern:
+
+```php
+$query = "SELECT * FROM courses WHERE id='".$_GET['id']."'";
+```
+
+Such implementations allow attackers to inject arbitrary SQL fragments into backend queries.
+
+---
+
+# Root Cause Analysis
+
+## Root Cause #1 – Dynamic SQL Construction
+
+Application logic constructs SQL statements through string concatenation:
+
+```php
+$query .= $user_input;
+```
+
+instead of using prepared statements.
+
+---
+
+## Root Cause #2 – Missing Input Validation
+
+No validation or sanitization is applied to user-supplied parameters before database processing.
+
+---
+
+## Root Cause #3 – Absence of Parameterized Queries
+
+The application uses direct query execution methods:
 
 ```php
 mysqli_query()
 ```
 
-instead of:
+instead of secure parameterized approaches:
 
 ```php
 prepare()
 bind_param()
 ```
 
-which separate data from executable SQL syntax.
+---
+
+## Root Cause #4 – Insecure Development Practices
+
+Database access logic is embedded directly within application code without centralized security controls.
 
 ---
 
-### Root Cause #4
+# Security Impact
 
-Incomplete Whitelisting
+Successful exploitation may allow attackers to:
 
-Although sortable columns are mapped internally, sort direction remains user-controlled.
+## Information Disclosure
 
----
-
-## Security Impact
-
-### Data Disclosure
-
-Potential access to:
+Access sensitive database content including:
 
 - Student Records
-- Payment Information
-- Instructor Data
-- Administrative Accounts
+- Examination Information
+- Scheduling Data
+- Administrative Credentials
+- Internal System Configuration
 
 ---
 
-### Business Data Manipulation
+## Authentication Bypass
 
-Attackers may alter stored records if database permissions allow write operations.
-
----
-
-### Data Destruction
-
-Malicious queries may remove business-critical information.
+Manipulated SQL conditions may permit unauthorized access to privileged functionality.
 
 ---
 
-### Database Compromise
+## Data Manipulation
 
-Over-privileged database accounts may increase impact.
+Attackers may alter academic records, scheduling information, or system configurations.
 
-Potentially dangerous functions include:
+Example:
 
 ```sql
-LOAD_FILE()
-INTO OUTFILE()
+UPDATE course
+SET course_name='Modified'
 ```
 
 ---
 
-## Remediation
+## Data Destruction
 
-### Use Prepared Statements
+Malicious SQL statements may delete business-critical information.
+
+Example:
+
+```sql
+DELETE FROM course
+```
+
+---
+
+## Full Database Compromise
+
+Under over-privileged database configurations, attackers may achieve complete database control.
+
+---
+
+# Risk Assessment
+
+## CVSS v3.1 Vector
+
+```text
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+```
+
+## CVSS Score
+
+```text
+9.8 Critical
+```
+
+### Justification
+
+| Metric | Value |
+|----------|----------|
+| Attack Vector | Network |
+| Attack Complexity | Low |
+| Privileges Required | None |
+| User Interaction | None |
+| Scope | Unchanged |
+| Confidentiality Impact | High |
+| Integrity Impact | High |
+| Availability Impact | High |
+
+---
+
+# Remediation
+
+## Immediate Actions
+
+### Implement Prepared Statements
 
 Example:
 
 ```php
-$stmt = $conn->prepare("
-SELECT *
-FROM cust_details
-WHERE
-name LIKE ?
-OR phone LIKE ?
-OR vehicle LIKE ?
-");
+$stmt = $conn->prepare(
+"SELECT * FROM course WHERE id=?"
+);
+
+$stmt->bind_param(
+"i",
+$id
+);
 ```
 
 ---
 
 ### Validate User Input
 
-Apply strict validation to:
+Enforce:
 
-- Dates
-- Pagination
-- Sorting
-- Search Parameters
+- Type Validation
+- Length Validation
+- Allowlist Validation
 
 ---
 
-### Implement Whitelist Controls
+### Restrict Database Permissions
 
-Example:
+Grant only required privileges:
 
-```php
-$allowedColumns = [
-'id',
-'name',
-'phone',
-'totalamount',
-'paidamount',
-'dueamount',
-'vehicle',
-'trainername',
-'date'
-];
+```sql
+SELECT
+INSERT
+UPDATE
+DELETE
+```
+
+Avoid:
+
+```sql
+FILE
+SUPER
+GRANT
 ```
 
 ---
 
-### Apply Least-Privilege Database Permissions
+### Secure Error Handling
 
-Restrict application accounts to only necessary privileges.
+Disable detailed SQL error disclosure:
 
----
-
-## Defensive Recommendations
-
-1. Adopt prepared statements across the project.
-2. Introduce a centralized database abstraction layer.
-3. Implement SQL auditing.
-4. Disable verbose production error messages.
-5. Conduct periodic secure code reviews.
+```ini
+display_errors = Off
+```
 
 ---
 
-## Research Notes
+# Defensive Recommendations
 
-This research was conducted through source-code review and defensive security analysis.
-
-The purpose of this analysis is:
-
-- Vulnerability identification
-- Root cause analysis
-- Secure coding improvement
-- Data breach prevention
-
-No offensive exploitation of live systems was performed.
+1. Adopt parameterized queries throughout the application.
+2. Introduce centralized database access controls.
+3. Conduct periodic secure code reviews.
+4. Implement SQL auditing and monitoring.
+5. Deploy WAF protections against common SQL injection patterns.
+6. Apply least-privilege principles to database accounts.
 
 ---
 
-## References
+# References
 
-- CWE-89: SQL Injection
-- OWASP Top 10 – Injection
-- DrivePulse Project
-- Public Disclosure: Issue #1
-
----
-
-## Author
-
-Researcher: Early
-
-GitHub:
-
-https://github.com/Earlyde
-
-Repository:
-
-https://github.com/Earlyde/cve
-
-Contact:
-
-Early@hnsldjy.icu
-
-## References
-
-### Original Disclosure
+## Original Disclosure
 
 - Vulnerability Report:
-  - https://github.com/Earlyde/cve/issues/1
+  - #1
 
-### Security Standards
+## Security Standards
 
 - CWE-89: Improper Neutralization of Special Elements used in an SQL Command ("SQL Injection")
   - https://cwe.mitre.org/data/definitions/89.html
@@ -289,12 +278,34 @@ Early@hnsldjy.icu
 - OWASP SQL Injection Prevention Cheat Sheet
   - https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
 
-### Technical References
+## Technical References
 
 - MySQL Error-Based Injection Technique: FLOOR(RAND()) Collision
-  - https://security.stackexchange.com/questions/89341/sql-injection-explain-this-query
 
-### Risk Assessment
+## Risk Assessment
 
 - CVSS v3.1 Calculator
   - https://www.first.org/cvss/calculator/3.1
+
+---
+
+# Author
+
+**Researcher:** Early
+
+**GitHub:**
+https://github.com/Earlyde
+
+**Repository:**
+https://github.com/Earlyde/cve
+
+**Contact:**
+Early@hnsldjy.icu
+
+---
+
+# Disclaimer
+
+This research was conducted for defensive security purposes, vulnerability analysis, and secure software improvement.
+
+No testing was performed against unauthorized systems. The goal of this disclosure is to support vulnerability remediation and improve software security.
